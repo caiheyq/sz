@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#f7f8fa">
+<title>芋头收货对账</title>
+<style>
+:root{
+  --bg:#f5f6f8;--card:#fff;--text:#20242b;--muted:#8a9099;--line:#eceef1;
+  --accent:#20242b;--accent2:#f0f1f3;--green:#2f7d57;--red:#c95656;
+  --radius:16px;--shadow:0 4px 18px rgba(24,32,45,.055);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+button,input{font:inherit}
+button{border:0;cursor:pointer}
+button:active{transform:scale(.98)}
+.app{width:min(1080px,100%);margin:auto;padding:16px 16px 30px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.brand h1{font-size:22px;letter-spacing:-.5px;margin:0 0 4px}
+.brand p{margin:0;color:var(--muted);font-size:12px}
+.date-area{display:flex;align-items:center;gap:7px}
+.date-input{height:40px;padding:0 11px;border:1px solid var(--line);border-radius:11px;background:#fff;color:var(--text)}
+.icon-btn,.ghost-btn,.primary-btn{height:40px;border-radius:11px;padding:0 13px;background:#fff;border:1px solid var(--line);color:var(--text)}
+.primary-btn{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.panel{background:var(--card);border-radius:var(--radius);padding:14px;margin-bottom:12px;box-shadow:var(--shadow)}
+.toolbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.filters{display:flex;gap:5px;background:#f3f4f6;padding:4px;border-radius:11px}
+.filter-btn{height:32px;padding:0 11px;border-radius:8px;background:transparent;color:#707681;font-size:13px}
+.filter-btn.active{background:#fff;color:var(--text);box-shadow:0 1px 4px rgba(0,0,0,.07);font-weight:600}
+.threshold-wrap{display:flex;align-items:center;gap:5px;font-size:13px;color:#666d77}
+.threshold-wrap input{width:68px;height:32px;padding:0 7px;border:1px solid var(--line);border-radius:8px;text-align:center;background:#fafafa}
+.precise{display:flex;align-items:center;gap:6px;font-size:13px;color:#666d77;margin-left:auto}
+.precise input{accent-color:#20242b;width:16px;height:16px}
+.export-btn{margin-left:0}.paid-all-btn{background:#eef7f1;color:#2f7d57;border:1px solid #d8eadf;font-weight:600}.avg b{color:#3d5f88}
+.table-wrap{overflow:hidden}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+th{height:38px;background:#f8f9fa;color:#7a8089;font-size:12px;font-weight:600}
+th,td{padding:7px 5px;text-align:center;border-bottom:1px solid var(--line)}
+td{font-size:14px}
+tbody tr:last-child td{border-bottom:0}
+td input[type=number]{width:88px;height:38px;padding:0 7px;border:1px solid #e2e4e8;border-radius:9px;background:#fbfbfc;text-align:center;outline:none}
+td input[type=number]:focus{border-color:#aeb4bc;background:#fff;box-shadow:0 0 0 3px rgba(32,36,43,.06)}
+.net,.amount{font-variant-numeric:tabular-nums;font-weight:600}
+.amount{color:#24282f}
+.pay{width:19px;height:19px;accent-color:#2f7d57;vertical-align:middle}
+.actions{display:flex;justify-content:center;gap:5px}
+.row-btn{height:30px;padding:0 8px;border-radius:8px;background:#f2f3f5;color:#555c66;font-size:12px}
+.row-btn.delete{color:var(--red);background:#fff1f1}
+tr.cancelled{opacity:.45;background:#fafafa}
+tr.cancelled td:not(.actions){text-decoration:line-through}
+.empty{text-align:center;color:#a0a5ad;padding:34px 10px}
+.table-note{font-size:11px;color:#9a9fa7;margin-top:8px;text-align:right}
+.pagination{display:flex;justify-content:center;align-items:center;gap:8px;padding-top:13px}
+.page-btn{min-width:34px;height:34px;padding:0 9px;border-radius:9px;background:#f1f2f4;color:#555c66}
+.page-btn:disabled{opacity:.35;cursor:not-allowed}
+.page-info{font-size:12px;color:#777e88;min-width:72px;text-align:center}
+.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
+.stat{padding:13px 10px;border:1px solid var(--line);background:#fafbfc;border-radius:13px}
+.stat span{display:block;color:#858b94;font-size:11px;margin-bottom:5px}
+.stat b{display:block;font-size:20px;line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:-.3px}
+.stat.unpaid b{color:#a84d4d}
+.modal-mask{position:fixed;inset:0;background:rgba(20,24,30,.35);display:none;align-items:flex-end;justify-content:center;z-index:20;padding:0}
+.modal-mask.show{display:flex}
+.history-sheet{width:min(560px,100%);max-height:78vh;background:#fff;border-radius:20px 20px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));box-shadow:0 -8px 30px rgba(0,0,0,.12)}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.sheet-head b{font-size:17px}
+.close-btn{width:34px;height:34px;border-radius:9px;background:#f1f2f4}
+.history-list{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;overflow:auto;max-height:58vh}
+.history-item{padding:12px;text-align:left;border:1px solid var(--line);background:#fafbfc;border-radius:11px}
+.history-item strong{display:block;font-size:14px}
+.history-item small{display:block;color:#9298a1;margin-top:4px}
+.history-item.today{border-color:#bfc3c9;background:#f4f5f6}
+@media(max-width:700px){
+  .app{padding:12px 10px calc(20px + env(safe-area-inset-bottom))}
+  header{align-items:flex-start}
+  .brand h1{font-size:19px}
+  .brand p{font-size:11px}
+  .date-area{gap:5px}
+  .date-input{width:132px;height:38px;font-size:13px}
+  .icon-btn{width:38px;padding:0;font-size:0}
+  .icon-btn:before{content:"历史";font-size:12px}
+  .panel{padding:10px;border-radius:14px}
+  .toolbar{gap:7px}
+  .primary-btn{flex:1;min-width:125px}
+  .export-btn{width:100%}
+  .precise{margin-left:2px}
+  .table-wrap{overflow:visible}
+  table,tbody,tr,td{display:block}
+  thead{display:none}
+  tbody{display:grid;gap:9px}
+  tbody tr{display:grid;grid-template-columns:34px 1fr 1fr 1fr;grid-template-areas:
+    "no jin price amount"
+    "no net paid actions";align-items:center;padding:7px 6px;border:1px solid var(--line);border-radius:11px;background:#fff;box-shadow:0 1px 4px rgba(20,25,35,.025);min-height:78px}
+  tbody tr.cancelled{background:#fafafa}
+  tbody td{border:0;padding:2px 3px;text-align:left;min-width:0}
+  tbody td:nth-child(1){grid-area:no;text-align:center;color:#a0a5ad;font-size:11px}
+  tbody td:nth-child(2){grid-area:jin}
+  tbody td:nth-child(3){grid-area:price}
+  tbody td:nth-child(4){grid-area:net;font-size:12px;color:#777e88}
+  tbody td:nth-child(5){grid-area:amount;font-weight:600}
+  tbody td:nth-child(6){grid-area:paid;font-size:11px;color:#777e88}
+  tbody td:nth-child(7){grid-area:actions}
+  tbody td:nth-child(2):before,tbody td:nth-child(3):before{display:inline-block;color:#9a9fa7;font-size:9px;margin-right:3px}
+  tbody td:nth-child(2):before{content:"斤"}
+  tbody td:nth-child(3):before{content:"价"}
+  tbody td:nth-child(4):before{content:"净重 "}
+  tbody td:nth-child(5):before{content:"金额 " ;font-size:9px;color:#9a9fa7;font-weight:400}
+  tbody td:nth-child(6):after{content:" 已付";margin-left:2px}
+  td input[type=number]{width:calc(100% - 15px);height:31px;font-size:13px;padding:0 4px;border-radius:7px}
+  .pay{width:18px;height:18px}
+  .actions{justify-content:flex-end;gap:4px}
+  .row-btn{height:28px;padding:0 7px;font-size:11px}
+  .summary{grid-template-columns:repeat(2,1fr)}
+  .paid-all-btn{flex:1;min-width:125px}
+  .stat{padding:11px 9px}
+  .stat b{font-size:18px}
+  .table-note{text-align:left;line-height:1.5}
+}
+@media(min-width:701px){
+  th:nth-child(1){width:7%}th:nth-child(2){width:14%}th:nth-child(3){width:14%}
+  th:nth-child(4){width:15%}th:nth-child(5){width:16%}th:nth-child(6){width:12%}th:nth-child(7){width:22%}
+}
+
+/* 多账本 */
+.ledger-bar{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:10px}
+.ledger-tabs{display:flex;gap:6px;overflow:auto;flex:1;min-width:180px;padding-bottom:2px}
+.ledger-tab{height:34px;padding:0 12px;border:1px solid var(--line);border-radius:9px;background:#fafbfc;color:#666d77;white-space:nowrap}
+.ledger-tab.active{background:#20242b;color:#fff;border-color:#20242b;font-weight:600}
+.ledger-add{height:34px;padding:0 11px;border-radius:9px;background:#f1f2f4;color:#555c66}
+.merge-tools{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:9px}
+.merge-title{font-size:12px;color:#858b94}
+.merge-list{display:flex;gap:6px;flex-wrap:wrap}
+.merge-item{display:flex;align-items:center;gap:4px;font-size:12px;color:#666d77;background:#fafbfc;border:1px solid var(--line);padding:5px 8px;border-radius:8px}
+.compare-panel{display:none;margin-top:10px;border-top:1px solid var(--line);padding-top:10px}
+.compare-panel.show{display:block}
+.compare-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.compare-card{border:1px solid var(--line);background:#fafbfc;border-radius:11px;padding:10px}
+.compare-card b{display:block;font-size:13px;margin-bottom:7px}
+.compare-card div{font-size:12px;color:#666d77;line-height:1.65}
+.truck-panel{margin-top:10px;border-top:1px solid var(--line);padding-top:12px}
+.truck-title{font-size:13px;font-weight:700;color:#4f5660;margin-bottom:9px}
+.truck-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.truck-card{border:1px solid var(--line);background:#fafbfc;border-radius:11px;padding:9px 10px}
+.truck-card span{display:block;font-size:11px;color:#858b94;margin-bottom:4px}
+.truck-card b{display:block;font-size:18px;color:#343a42}
+.truck-input{width:100%;height:32px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:0 8px;font-size:14px;box-sizing:border-box}
+.truck-remain b{color:#2f7d4a}
+@media(max-width:700px){
+  .ledger-tabs{order:1;flex-basis:100%}
+  .ledger-add{order:2}
+  .merge-tools{align-items:flex-start}
+  .merge-list{width:100%}
+}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">
+    <h1>芋头收货对账</h1>
+    <p>每页 10 行 · 斤数 × 0.95 = 净重</p>
+  </div>
+  <div class="date-area">
+    <input id="date" class="date-input" type="date">
+    <button id="historyBtn" class="icon-btn" title="历史日期">历史日期</button>
+  </div>
+</header>
+
+<section class="panel">
+  <div class="toolbar">
+    <button class="primary-btn" id="addBtn">＋ 添加一行</button>
+    <div class="filters">
+      <button data-filter="all" class="filter-btn active">全部</button>
+      <button data-filter="low" class="filter-btn">低于分界</button>
+      <button data-filter="high" class="filter-btn">高于分界</button>
+    </div>
+    <label class="threshold-wrap">分界价
+      <input id="threshold" type="number" step="0.01" value="0.6" inputmode="decimal">
+    </label>
+    <label class="precise"><input id="precise" type="checkbox"> 精确到小数</label>
+    <button id="paidAllBtn" class="ghost-btn paid-all-btn">✓ 全部已付款</button>
+    <button id="exportBtn" class="ghost-btn export-btn">导出 Excel</button>
+    <button id="backupBtn" class="ghost-btn" title="把全部数据存成 JSON 文件，可在任意浏览器导入">导出备份</button>
+    <button id="importBtn" class="ghost-btn" title="从备份文件导入数据">导入备份</button>
+    <button id="importV2Btn" class="ghost-btn" title="读取当前浏览器里美化版(taro-receiving-ledger-v2)的数据并合并进来">从美化版导入</button>
+    <input id="importFile" type="file" accept=".json,application/json" style="display:none">
+  </div>
+  <div class="ledger-bar">
+    <div id="ledgerTabs" class="ledger-tabs"></div>
+    <button id="addLedgerBtn" class="ledger-add">＋ 新账本</button>
+  </div>
+  <div class="merge-tools">
+    <span class="merge-title">合并计算：</span>
+    <div id="mergeList" class="merge-list"></div>
+    <button id="compareBtn" class="ghost-btn">对比计算</button>
+  </div>
+  <div id="comparePanel" class="compare-panel">
+    <div id="compareGrid" class="compare-grid"></div>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>序号</th><th>斤数</th><th>单价</th><th>净重</th><th>金额</th><th>已付款</th><th>操作</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <div class="table-note">划掉的行不参与合计；已付款只影响“未付金额”。主汇总按上方勾选的账本合并计算。</div>
+  <div class="pagination" id="pagination">
+    <button class="page-btn" id="prevPage">‹</button>
+    <span class="page-info" id="pageInfo">第 1 / 1 页</span>
+    <button class="page-btn" id="nextPage">›</button>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="summary">
+    <div class="stat"><span>总斤数</span><b id="sumJin">0</b></div>
+    <div class="stat"><span>总净重</span><b id="sumNet">0</b></div>
+    <div class="stat"><span>总金额</span><b id="sumMoney">0</b></div>
+    <div class="stat avg"><span>均价（总金额 ÷ 总净重）</span><b id="sumAvg">0</b></div>
+    <div class="stat unpaid"><span>未付金额</span><b id="sumUnpaid">0</b></div>
+  </div>
+</section>
+
+<section class="panel truck-panel">
+  <div class="truck-title">货车拉货</div>
+  <div class="truck-grid">
+    <div class="truck-card">
+      <span>总斤数</span>
+      <b id="truckJin">0</b>
+    </div>
+    <div class="truck-card">
+      <span>100斤/包 · 自动计算</span>
+      <b id="truckPackages">0</b>
+    </div>
+    <div class="truck-card">
+      <span>第一次拉走（包）</span>
+      <input id="truckFirst" class="truck-input" type="number" min="0" step="1" inputmode="numeric" value="0">
+    </div>
+    <div class="truck-card">
+      <span>第二次拉走（包）</span>
+      <input id="truckSecond" class="truck-input" type="number" min="0" step="1" inputmode="numeric" value="0">
+    </div>
+  </div>
+  <div class="truck-grid" style="margin-top:8px">
+    <div class="truck-card truck-remain">
+      <span>现在还剩（包）</span>
+      <b id="truckRemain">0</b>
+    </div>
+  </div>
+</section>
+</div>
+
+<div id="historyModal" class="modal-mask">
+  <div class="history-sheet">
+    <div class="sheet-head"><b>历史日期</b><button id="closeHistory" class="close-btn">×</button></div>
+    <div id="historyList" class="history-list"></div>
+  </div>
+</div>
+
+<script>
+const $=id=>document.getElementById(id);
+const KEY='taro-receiving-ledger-v3';
+const OLD_KEY='taro-receiving-ledger-v2';
+const PAGE_SIZE=10;
+let state=loadAll(), filter='all', currentPage=1;
+let activeLedger=0, selectedLedgers=new Set([0]), compareOpen=false;
+
+function today(){
+  const d=new Date();
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+function blank(){return {jin:'',price:'',paid:false,cancelled:false}}
+function blankLedger(name){return {name,rows:[blank()]}}
+function normalizeState(raw){
+  const out={};
+  Object.keys(raw||{}).forEach(date=>{
+    const v=raw[date];
+    if(Array.isArray(v)){
+      out[date]={ledgers:[{name:'账本1',rows:v}]};
+    }else if(v && Array.isArray(v.ledgers)){
+      out[date]={ledgers:v.ledgers.map((l,i)=>({
+        name:l.name||`账本${i+1}`,
+        rows:Array.isArray(l.rows)&&l.rows.length?l.rows:[blank()]
+      }))};
+      if(!out[date].ledgers.length) out[date].ledgers=[blankLedger('账本1')];
+    }
+  });
+  return out;
+}
+function loadAll(){
+  try{
+    const v3raw=localStorage.getItem(KEY);
+    const v2raw=localStorage.getItem(OLD_KEY);
+    const v3=v3raw ? normalizeState(JSON.parse(v3raw)) : {};
+    const v2=v2raw ? normalizeState(JSON.parse(v2raw)) : {};
+
+    // 安全迁移：v3 和旧版 v2 都作为数据源。
+    // 绝不让空的/默认的 v3 覆盖旧版已有数据。
+    const merged={...v2};
+    Object.keys(v3).forEach(date=>{
+      const a=merged[date], b=v3[date];
+      if(!a){ merged[date]=b; return; }
+
+      const oldLedgers=Array.isArray(a.ledgers)?a.ledgers:[];
+      const newLedgers=Array.isArray(b.ledgers)?b.ledgers:[];
+
+      const hasRealRows=ls=>ls.some(l=>
+        Array.isArray(l.rows) && l.rows.some(r=>
+          String(r.jin??'')!=='' || String(r.price??'')!=='' || r.paid || r.cancelled
+        )
+      );
+
+      // 新版只是默认空账本时，保留旧版真实数据。
+      if(!hasRealRows(newLedgers) && hasRealRows(oldLedgers)){
+        merged[date]=a;
+        return;
+      }
+
+      // 两边都有数据：按账本名称合并，避免丢数据。
+      const result=newLedgers.map(l=>({
+        name:l.name,
+        rows:Array.isArray(l.rows)&&l.rows.length?l.rows:[blank()]
+      }));
+      oldLedgers.forEach(ol=>{
+        const same=result.find(nl=>nl.name===ol.name);
+        if(same){
+          const newHasReal=hasRealRows([same]);
+          const oldHasReal=hasRealRows([ol]);
+          if(!newHasReal && oldHasReal) same.rows=ol.rows;
+        }else{
+          result.push(ol);
+        }
+      });
+      merged[date]={ledgers:result.length?result:[blankLedger('账本1')]};
+    });
+    return merged;
+  }catch(e){
+    // 读取失败时不主动清空/覆盖本地数据。
+    return {};
+  }
+}
+function save(){
+  const json=JSON.stringify(state);
+  localStorage.setItem(KEY,json);
+}
+function currentDate(){return $('date').value}
+function dayData(){
+  const d=currentDate();
+  if(!state[d]) state[d]={ledgers:[blankLedger('账本1')],truck:{first:0,second:0}};
+  if(!state[d].ledgers.length) state[d].ledgers=[blankLedger('账本1')];
+  if(!state[d].truck) state[d].truck={first:0,second:0};
+  if(!Number.isFinite(Number(state[d].truck.first))) state[d].truck.first=0;
+  if(!Number.isFinite(Number(state[d].truck.second))) state[d].truck.second=0;
+  return state[d];
+}
+function ledgers(){return dayData().ledgers}
+function currentLedger(){return ledgers()[activeLedger] ||= blankLedger(`账本${activeLedger+1}`)}
+function data(){return currentLedger().rows}
+function calcJin(v){
+  const n=Number(v)||0;
+  return $('precise').checked ? n : Math.trunc(n);
+}
+function calcPrice(v){return Number(v)||0}
+function calcRow(r){
+  const j=calcJin(r.jin), p=calcPrice(r.price);
+  if($('precise').checked){
+    const net=j*.95;
+    return {jin:j,net,amount:net*p};
+  }
+  // 未勾选精确：
+  // 斤数直接截断；净重显示直接截断，但金额必须使用“未截断的原始净重”计算，
+  // 最后只对金额结果直接截断，绝不能把截断后的净重再次拿去算金额。
+  // 例如：761 × 0.95 = 722.95，722.95 × 0.45 = 325.3275，最终金额 = 325。
+  const rawNet=j*.95;
+  const net=Math.trunc(rawNet);
+  const amount=Math.trunc(rawNet*p + 1e-9);
+  return {jin:j,net,amount};
+}
+function fmt(n){
+  if(!isFinite(n)) n=0;
+  return $('precise').checked ? n.toFixed(2).replace(/\.?0+$/,'') : Math.trunc(n).toString();
+}
+function money(n){
+  if(!isFinite(n)) n=0;
+  return $('precise').checked ? n.toFixed(2).replace(/\.?0+$/,'') : Math.trunc(n).toString();
+}
+function avgText(n){
+  // 均价（元/斤）通常是 0.6 之类的小数，无论是否勾选“精确到小数”都必须保留小数，
+  // 否则会被整数截断显示成 0。保留到 3 位小数并去掉多余的 0。
+  if(!isFinite(n)) n=0;
+  return Number(n.toFixed(3)).toString();
+}
+function ledgerStats(ledger){
+  let jin=0,net=0,total=0,unpaid=0;
+  (ledger.rows||[]).forEach(r=>{
+    if(r.cancelled)return;
+    const x=calcRow(r);
+    jin+=x.jin; net+=x.net; total+=x.amount;
+    if(!r.paid) unpaid+=x.amount;
+  });
+  return {jin,net,total,avg:net>0?total/net:0,unpaid};
+}
+function selectedLedgerObjects(){
+  const ls=ledgers();
+  return ls.filter((_,i)=>selectedLedgers.has(i));
+}
+function calcScopeRows(){
+  const chosen=selectedLedgerObjects();
+  const merged=[];
+  chosen.forEach(l=>(l.rows||[]).forEach(r=>merged.push(r)));
+  return merged;
+}
+function filteredRows(){
+  const rows=data(), t=Number($('threshold').value)||0;
+  return rows.map((r,i)=>({r,i})).filter(({r})=>{
+    if(filter==='low') return r.price!=='' && Number(r.price)<t;
+    if(filter==='high') return r.price!=='' && Number(r.price)>=t;
+    return true;
+  });
+}
+function pageCount(){return Math.max(1,Math.ceil(filteredRows().length/PAGE_SIZE))}
+function clampPage(){currentPage=Math.min(Math.max(1,currentPage),pageCount())}
+
+function renderLedgers(){
+  const tabs=$('ledgerTabs'), list=$('mergeList');
+  tabs.innerHTML=''; list.innerHTML='';
+  ledgers().forEach((l,i)=>{
+    const b=document.createElement('button');
+    b.className='ledger-tab'+(i===activeLedger?' active':'');
+    b.textContent=l.name||`账本${i+1}`;
+    b.title='双击可重命名';
+    b.onclick=()=>{
+      activeLedger=i;
+      if(!selectedLedgers.size) selectedLedgers.add(i);
+      currentPage=pageCount();
+      render();
+    };
+    b.ondblclick=()=>{
+      const name=prompt('账本名称',l.name||`账本${i+1}`);
+      if(name&&name.trim()){l.name=name.trim();save();renderLedgers();renderCompare();}
+    };
+    tabs.appendChild(b);
+
+    const label=document.createElement('label');
+    label.className='merge-item';
+    const cb=document.createElement('input');
+    cb.type='checkbox'; cb.checked=selectedLedgers.has(i);
+    cb.onchange=()=>{
+      if(cb.checked) selectedLedgers.add(i); else selectedLedgers.delete(i);
+      render();
+    };
+    label.append(cb,document.createTextNode(l.name||`账本${i+1}`));
+    list.appendChild(label);
+  });
+}
+function renderCompare(){
+  const panel=$('comparePanel'), grid=$('compareGrid');
+  panel.classList.toggle('show',compareOpen);
+  grid.innerHTML='';
+  if(!compareOpen)return;
+  ledgers().forEach((l,i)=>{
+    const s=ledgerStats(l);
+    const card=document.createElement('div');
+    card.className='compare-card';
+    card.innerHTML=`<b>${esc(l.name||`账本${i+1}`)}</b>
+      <div>总斤数：${fmt(s.jin)}</div>
+      <div>总净重：${fmt(s.net)}</div>
+      <div>总金额：${money(s.total)}</div>
+      <div>均价：${avgText(s.avg)}</div>
+      <div>未付金额：${money(s.unpaid)}</div>`;
+    grid.appendChild(card);
+  });
+}
+function render(){
+  if(activeLedger>=ledgers().length) activeLedger=0;
+  renderLedgers();
+  renderCompare();
+  clampPage();
+  const tbody=$('rows'); tbody.innerHTML='';
+  const all=filteredRows();
+  const pageRows=all.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
+
+  if(!pageRows.length){
+    tbody.innerHTML='<tr><td colspan="7" class="empty">这一页暂时没有记录</td></tr>';
+  }else{
+    pageRows.forEach(({r,i})=>{
+      const {net,amount}=calcRow(r);
+      const tr=document.createElement('tr'); if(r.cancelled)tr.className='cancelled';
+      tr.innerHTML=`
+        <td>${i+1}</td>
+        <td><input inputmode="decimal" type="number" min="0" step="0.01" data-i="${i}" data-k="jin" value="${esc(r.jin)}"></td>
+        <td><input inputmode="decimal" type="number" min="0" step="0.01" data-i="${i}" data-k="price" value="${esc(r.price)}"></td>
+        <td class="net">${fmt(net)}</td>
+        <td class="amount">${money(amount)}</td>
+        <td><input class="pay" type="checkbox" data-i="${i}" data-k="paid" ${r.paid?'checked':''} ${r.cancelled?'disabled':''}></td>
+        <td class="actions">
+          <button class="row-btn" data-cancel="${i}">${r.cancelled?'恢复':'划掉'}</button>
+          <button class="row-btn delete" data-del="${i}">删除</button>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  tbody.querySelectorAll('input[data-k]').forEach(el=>{
+    el.oninput=e=>{
+      const i=+e.target.dataset.i,k=e.target.dataset.k;
+      if(k==='paid') return;
+      data()[i][k]=e.target.value;
+      save();
+      refreshRow(i, e.target.closest('tr'));
+    };
+    el.onchange=e=>{
+      const i=+e.target.dataset.i,k=e.target.dataset.k;
+      if(k==='paid') data()[i].paid=e.target.checked;
+      else data()[i][k]=e.target.value;
+      save();
+      if(k==='paid') updateSummary(calcScopeRows());
+    };
+  });
+  tbody.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.cancel; data()[i].cancelled=!data()[i].cancelled; save(); render();
+  });
+  tbody.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
+    data().splice(+b.dataset.del,1);
+    if(!data().length)data().push(blank());
+    save(); clampPage(); render();
+  });
+  updateSummary(calcScopeRows());
+  renderTruck();
+  $('pageInfo').textContent=`第 ${currentPage} / ${pageCount()} 页`;
+  $('prevPage').disabled=currentPage<=1;
+  $('nextPage').disabled=currentPage>=pageCount();
+}
+function refreshRow(i,tr){
+  if(!tr)return;
+  const r=data()[i];
+  const {net,amount}=calcRow(r);
+  const netEl=tr.querySelector('.net'), amountEl=tr.querySelector('.amount');
+  if(netEl)netEl.textContent=fmt(net);
+  if(amountEl)amountEl.textContent=money(amount);
+  updateSummary(calcScopeRows());
+}
+function esc(v){return String(v??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}
+function updateSummary(rows){
+  // 主界面的合并统计严格按勾选的账本计算；只勾一个就是该账本。
+  let jin=0,net=0,total=0,unpaid=0;
+  rows.forEach(r=>{
+    if(r.cancelled)return;
+    const {jin:j,net:n,amount:a}=calcRow(r);
+    jin+=j; net+=n; total+=a;
+    if(!r.paid)unpaid+=a;
+  });
+  $('sumJin').textContent=fmt(jin);
+  $('sumNet').textContent=fmt(net);
+  $('sumMoney').textContent=money(total);
+  $('sumAvg').textContent=net>0 ? avgText(total/net) : '0';
+  $('sumUnpaid').textContent=money(unpaid);
+}
+
+function selectDate(date){
+  $('date').value=date;
+  if(!state[date])state[date]={ledgers:[blankLedger('账本1')]};
+  if(!state[date].ledgers?.length)state[date].ledgers=[blankLedger('账本1')];
+  activeLedger=0;
+  selectedLedgers=new Set([0]);
+  currentPage=1;
+  if(date===today()) currentPage=pageCount();
+  save(); render();
+}
+function openHistory(){
+  const dates=Object.keys(state).sort().reverse();
+  const list=$('historyList'); list.innerHTML='';
+  if(!dates.length){list.innerHTML='<div class="empty">还没有历史记录</div>';return}
+  dates.forEach(d=>{
+    const btn=document.createElement('button');
+    btn.className='history-item'+(d===today()?' today':'');
+    const count=(state[d]||[]).length;
+    btn.innerHTML=`<strong>${d}${d===today()?' · 今天':''}</strong><small>${count} 行记录</small>`;
+    btn.onclick=()=>{$('historyModal').classList.remove('show');selectDate(d)};
+    list.appendChild(btn);
+  });
+  $('historyModal').classList.add('show');
+}
+
+function markAllPaid(){
+  const rows=data();
+  rows.forEach(r=>{ if(!r.cancelled) r.paid=true; });
+  save(); render();
+}
+
+function xesc(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;')}
+function crc32(bytes){
+  let table=crc32.table;
+  if(!table){table=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);table[n]=c>>>0}crc32.table=table;}
+  let c=0xFFFFFFFF;for(let i=0;i<bytes.length;i++)c=table[(c^bytes[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;
+}
+function u16(n){return new Uint8Array([n&255,(n>>>8)&255])}
+function u32(n){return new Uint8Array([n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255])}
+function cat(...parts){let len=parts.reduce((a,b)=>a+b.length,0),out=new Uint8Array(len),o=0;for(const b of parts){out.set(b,o);o+=b.length}return out}
+function zipStore(files){
+  const enc=new TextEncoder(), locals=[], centrals=[];let offset=0;
+  for(const f of files){
+    const name=enc.encode(f.name), data=typeof f.data==='string'?enc.encode(f.data):f.data, crc=crc32(data);
+    const local=cat(new Uint8Array([80,75,3,4]),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0),name,data);
+    locals.push(local);
+    const central=cat(new Uint8Array([80,75,1,2]),u16(20),u16(20),u16(0),u16(0),u16(0),u16(0),u32(crc),u32(data.length),u32(data.length),u16(name.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset),name);
+    centrals.push(central);offset+=local.length;
+  }
+  const cd=cat(...centrals), body=cat(...locals,cd);
+  const eocd=cat(new Uint8Array([80,75,5,6]),u16(0),u16(0),u16(files.length),u16(files.length),u32(cd.length),u32(offset),u16(0));
+  return cat(body,eocd);
+}
+function exportXlsx(){
+  const day=dayData(), date=currentDate(), ls=ledgers();
+  const numFmt=$('precise').checked?'0.00':'0';
+  const cell=(v,kind='s')=>kind==='n'
+    ? `<c t="n"><v>${Number(v)||0}</v></c>`
+    : `<c t="inlineStr"><is><t>${xesc(v)}</t></is></c>`;
+  let sheetRows=[], rowNo=1;
+  sheetRows.push(`<row r="${rowNo}"><c r="A${rowNo}" s="1" t="inlineStr"><is><t>芋头收货对账</t></is></c></row>`); rowNo++;
+  sheetRows.push(`<row r="${rowNo}"><c r="A${rowNo}" s="2" t="inlineStr"><is><t>收货日期</t></is></c><c r="B${rowNo}" t="inlineStr"><is><t>${xesc(date)}</t></is></c></row>`); rowNo++;
+  sheetRows.push(`<row r="${rowNo}"><c r="A${rowNo}" s="2" t="inlineStr"><is><t>账本数量</t></is></c><c r="B${rowNo}" t="n"><v>${ls.length}</v></c></row>`); rowNo++;
+  sheetRows.push(`<row r="${rowNo}"/>`); rowNo++;
+
+  const heads=['账本','序号','斤数','单价','净重','金额','已付款','状态'];
+  sheetRows.push(`<row r="${rowNo}">${heads.map((h,i)=>cell(h,'s').replace('<c ',`<c r="${String.fromCharCode(65+i)}${rowNo}" s="3" `)).join('')}</row>`);
+  rowNo++;
+
+  ls.forEach((l,li)=>{
+    (l.rows||[]).forEach((r,i)=>{
+      const x=calcRow(r), rr=rowNo++;
+      sheetRows.push(`<row r="${rr}">${
+        cell(l.name||`账本${li+1}`).replace('<c ','<c r="A'+rr+'" ')}${
+        cell(i+1,'n').replace('<c ','<c r="B'+rr+'" ')}${
+        cell(calcJin(r.jin),'n').replace('<c ','<c r="C'+rr+'" s="4" ')}${
+        cell(Number(r.price)||0,'n').replace('<c ','<c r="D'+rr+'" s="7" ')}${
+        cell(x.net,'n').replace('<c ','<c r="E'+rr+'" s="4" ')}${
+        cell(x.amount,'n').replace('<c ','<c r="F'+rr+'" s="4" ')}${
+        cell(r.paid?'是':'否').replace('<c ','<c r="G'+rr+'" ')}${
+        cell(r.cancelled?'已划掉':'正常').replace('<c ','<c r="H'+rr+'" ')}</row>`);
+    });
+  });
+
+  // 汇总：明确导出总斤数、总净重、总金额、均价、未付金额；整数模式沿用逐行截断后的账目再汇总。
+  const allStats={jin:0,net:0,total:0,unpaid:0};
+  ls.forEach(l=>{
+    const s=ledgerStats(l);
+    allStats.jin+=s.jin; allStats.net+=s.net; allStats.total+=s.total; allStats.unpaid+=s.unpaid;
+  });
+  allStats.avg=allStats.net>0?allStats.total/allStats.net:0;
+
+  rowNo++;
+  const summaryStart=rowNo;
+  const summaries=[
+    ['总斤数',allStats.jin],
+    ['总净重',allStats.net],
+    ['总金额',allStats.total],
+    ['均价',allStats.avg],
+    ['未付金额',allStats.unpaid]
+  ];
+  summaries.forEach(([label,val],idx)=>{
+    const rr=rowNo++;
+    const avgStyle=label==='均价'?'6':'5';
+    sheetRows.push(`<row r="${rr}">${cell(label).replace('<c ','<c r="A'+rr+'" s="3" ')}<c r="B${rr}" s="${avgStyle}" t="n"><v>${Number(val)||0}</v></c></row>`);
+  });
+
+  // 各账本独立汇总，方便同一天不同地点核对。
+  rowNo++;
+  const perHead=['账本','总斤数','总净重','总金额','均价','未付金额'];
+  sheetRows.push(`<row r="${rowNo}">${perHead.map((h,i)=>cell(h,'s').replace('<c ',`<c r="${String.fromCharCode(65+i)}${rowNo}" s="3" `)).join('')}</row>`);
+  rowNo++;
+  ls.forEach((l,i)=>{
+    const s=ledgerStats(l), rr=rowNo++;
+    const vals=[l.name||`账本${i+1}`,s.jin,s.net,s.total,s.avg,s.unpaid];
+    sheetRows.push(`<row r="${rr}">${cell(vals[0]).replace('<c ','<c r="A'+rr+'" ')}${cell(vals[1],'n').replace('<c ','<c r="B'+rr+'" s="5" ')}${cell(vals[2],'n').replace('<c ','<c r="C'+rr+'" s="5" ')}${cell(vals[3],'n').replace('<c ','<c r="D'+rr+'" s="5" ')}${cell(vals[4],'n').replace('<c ','<c r="E'+rr+'" s="6" ')}${cell(vals[5],'n').replace('<c ','<c r="F'+rr+'" s="5" ')}</row>`);
+  });
+
+  const ur=rowNo-1;
+  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:H${ur}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetData>${sheetRows.join('')}</sheetData><mergeCells count="1"><mergeCell ref="A1:H1"/></mergeCells><cols><col min="1" max="1" width="18"/><col min="2" max="2" width="11"/><col min="3" max="3" width="13"/><col min="4" max="4" width="12"/><col min="5" max="5" width="14"/><col min="6" max="6" width="16"/><col min="7" max="7" width="12"/><col min="8" max="8" width="14"/></cols></worksheet>`;
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="3"><numFmt numFmtId="164" formatCode="${numFmt}"/><numFmt numFmtId="165" formatCode="0.000"/><numFmt numFmtId="166" formatCode="0.00"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="18"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="2" fillId="0" borderId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="165" fontId="2" fillId="0" borderId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="166" fontId="0" fillId="0" borderId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs></styleSheet>`;
+  const workbook=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="收货对账" sheetId="1" r:id="rId1"/></sheets></workbook>`;
+  const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+  const rootrels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`;
+  const ct=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`;
+  const zip=zipStore([{name:'[Content_Types].xml',data:ct},{name:'_rels/.rels',data:rootrels},{name:'xl/workbook.xml',data:workbook},{name:'xl/_rels/workbook.xml.rels',data:rels},{name:'xl/worksheets/sheet1.xml',data:sheet},{name:'xl/styles.xml',data:styles}]);
+  const blob=new Blob([zip],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`芋头收货对账_${date}.xlsx`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+$('date').value=today();
+$('date').onchange=()=>{
+  activeLedger=0;
+  selectedLedgers=new Set([0]);
+  selectDate(currentDate());
+};
+$('addLedgerBtn').onclick=()=>{
+  const ls=ledgers();
+  const name=prompt('新账本名称',`账本${ls.length+1}`);
+  if(name===null)return;
+  const clean=name.trim()||`账本${ls.length+1}`;
+  ls.push(blankLedger(clean));
+  activeLedger=ls.length-1;
+  selectedLedgers.add(activeLedger);
+  currentPage=1;
+  save(); render();
+};
+$('compareBtn').onclick=()=>{
+  compareOpen=!compareOpen;
+  renderCompare();
+};
+$('addBtn').onclick=()=>{
+  const rows=data();rows.push(blank());currentPage=pageCount();save();render();
+};
+$('precise').onchange=render;
+$('threshold').oninput=render;
+document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{
+  filter=b.dataset.filter;
+  document.querySelectorAll('[data-filter]').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active');currentPage=1;render();
+});
+$('prevPage').onclick=()=>{if(currentPage>1){currentPage--;render()}};
+$('nextPage').onclick=()=>{if(currentPage<pageCount()){currentPage++;render()}};
+$('historyBtn').onclick=openHistory;
+$('closeHistory').onclick=()=>$('historyModal').classList.remove('show');
+$('historyModal').onclick=e=>{if(e.target===$('historyModal'))$('historyModal').classList.remove('show')};
+$('paidAllBtn').onclick=()=>{
+  if(confirm('把当前日期所有未划掉的记录标记为已付款？')) markAllPaid();
+};
+$('exportBtn').onclick=exportXlsx;
+bindTruck();
+
+// —— 备份导出 / 备份导入 / 从美化版(v2)导入 ——
+function downloadFile(name, text, mime){
+  const blob=new Blob([text],{type:mime||'application/octet-stream'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+function mergeImported(conv){
+  // 把外部数据合并进当前 state；同名账本的行追加进去，新账本直接新增。
+  let days=0;
+  Object.keys(conv).forEach(d=>{
+    if(!state[d]){state[d]=conv[d];days++;}
+    else{
+      if(!state[d].ledgers) state[d].ledgers=[blankLedger('账本1')];
+      conv[d].ledgers.forEach(l=>{
+        const tgt=state[d].ledgers.find(x=>x.name===l.name);
+        if(tgt){(l.rows||[]).forEach(r=>tgt.rows.push(r));}
+        else state[d].ledgers.push(l);
+      });
+      days++;
+    }
+  });
+  return days;
+}
+function exportBackup(){
+  downloadFile('芋头收货对账_备份.json', JSON.stringify(state,null,2), 'application/json');
+}
+function importBackup(e){
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const conv=normalizeState(JSON.parse(reader.result));
+      const days=mergeImported(conv);
+      save(); activeLedger=0; selectedLedgers=new Set([0]); currentPage=1; render();
+      alert('导入完成：共处理 '+days+' 天数据。');
+    }catch(err){ alert('导入失败：文件不是本工具的备份格式。\n'+err.message); }
+    e.target.value='';
+  };
+  reader.readAsText(file);
+}
+function importFromV2(){
+  try{
+    const v2=JSON.parse(localStorage.getItem(OLD_KEY));
+    if(!v2 || !Object.keys(v2).length){ alert('当前浏览器里没有找到美化版(taro-receiving-ledger-v2)的数据。\n换过浏览器的话，请先在旧浏览器里用美化版“导出备份”，再到这里“导入备份”。'); return; }
+    const conv=normalizeState(v2);
+    const days=mergeImported(conv);
+    save(); activeLedger=0; selectedLedgers=new Set([0]); currentPage=1; render();
+    alert('已从美化版导入，共处理 '+days+' 天数据。');
+  }catch(err){ alert('导入失败：'+err.message); }
+}
+$('backupBtn').onclick=exportBackup;
+$('importBtn').onclick=()=>$('importFile').click();
+$('importFile').onchange=importBackup;
+$('importV2Btn').onclick=importFromV2;
+
+
+// 打开工具时：默认定位到今天的日期账本。
+// 使用本地日期，避免 UTC 时区导致晚上/凌晨跳到前一天。
+const openDate=today();
+$('date').value=openDate;
+if(!state[openDate])state[openDate]={ledgers:[blankLedger('账本1')],truck:{first:0,second:0}};
+if(!state[openDate].truck)state[openDate].truck={first:0,second:0};
+activeLedger=0;
+selectedLedgers=new Set([0]);
+currentPage=pageCount();
+render();
+</script>
+</body>
+</html>
