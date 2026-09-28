@@ -139,6 +139,14 @@ tr.cancelled td:not(.actions){text-decoration:line-through}
 .compare-card{border:1px solid var(--line);background:#fafbfc;border-radius:11px;padding:10px}
 .compare-card b{display:block;font-size:13px;margin-bottom:7px}
 .compare-card div{font-size:12px;color:#666d77;line-height:1.65}
+.truck-panel{margin-top:10px;border-top:1px solid var(--line);padding-top:12px}
+.truck-title{font-size:13px;font-weight:700;color:#4f5660;margin-bottom:9px}
+.truck-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.truck-card{border:1px solid var(--line);background:#fafbfc;border-radius:11px;padding:9px 10px}
+.truck-card span{display:block;font-size:11px;color:#858b94;margin-bottom:4px}
+.truck-card b{display:block;font-size:18px;color:#343a42}
+.truck-input{width:100%;height:32px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:0 8px;font-size:14px;box-sizing:border-box}
+.truck-remain b{color:#2f7d4a}
 @media(max-width:700px){
   .ledger-tabs{order:1;flex-basis:100%}
   .ledger-add{order:2}
@@ -219,6 +227,34 @@ tr.cancelled td:not(.actions){text-decoration:line-through}
     <div class="stat unpaid"><span>未付金额</span><b id="sumUnpaid">0</b></div>
   </div>
 </section>
+
+<section class="panel truck-panel">
+  <div class="truck-title">货车拉货</div>
+  <div class="truck-grid">
+    <div class="truck-card">
+      <span>总斤数</span>
+      <b id="truckJin">0</b>
+    </div>
+    <div class="truck-card">
+      <span>100斤/包 · 自动计算</span>
+      <b id="truckPackages">0</b>
+    </div>
+    <div class="truck-card">
+      <span>第一次拉走（包）</span>
+      <input id="truckFirst" class="truck-input" type="number" min="0" step="1" inputmode="numeric" value="0">
+    </div>
+    <div class="truck-card">
+      <span>第二次拉走（包）</span>
+      <input id="truckSecond" class="truck-input" type="number" min="0" step="1" inputmode="numeric" value="0">
+    </div>
+  </div>
+  <div class="truck-grid" style="margin-top:8px">
+    <div class="truck-card truck-remain">
+      <span>现在还剩（包）</span>
+      <b id="truckRemain">0</b>
+    </div>
+  </div>
+</section>
 </div>
 
 <div id="historyModal" class="modal-mask">
@@ -236,7 +272,13 @@ const PAGE_SIZE=10;
 let state=loadAll(), filter='all', currentPage=1;
 let activeLedger=0, selectedLedgers=new Set([0]), compareOpen=false;
 
-function today(){return new Date().toISOString().slice(0,10)}
+function today(){
+  const d=new Date();
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
 function blank(){return {jin:'',price:'',paid:false,cancelled:false}}
 function blankLedger(name){return {name,rows:[blank()]}}
 function normalizeState(raw){
@@ -314,8 +356,11 @@ function save(){
 function currentDate(){return $('date').value}
 function dayData(){
   const d=currentDate();
-  if(!state[d]) state[d]={ledgers:[blankLedger('账本1')]};
+  if(!state[d]) state[d]={ledgers:[blankLedger('账本1')],truck:{first:0,second:0}};
   if(!state[d].ledgers.length) state[d].ledgers=[blankLedger('账本1')];
+  if(!state[d].truck) state[d].truck={first:0,second:0};
+  if(!Number.isFinite(Number(state[d].truck.first))) state[d].truck.first=0;
+  if(!Number.isFinite(Number(state[d].truck.second))) state[d].truck.second=0;
   return state[d];
 }
 function ledgers(){return dayData().ledgers}
@@ -491,6 +536,7 @@ function render(){
     save(); clampPage(); render();
   });
   updateSummary(calcScopeRows());
+  renderTruck();
   $('pageInfo').textContent=`第 ${currentPage} / ${pageCount()} 页`;
   $('prevPage').disabled=currentPage<=1;
   $('nextPage').disabled=currentPage>=pageCount();
@@ -691,6 +737,7 @@ $('paidAllBtn').onclick=()=>{
   if(confirm('把当前日期所有未划掉的记录标记为已付款？')) markAllPaid();
 };
 $('exportBtn').onclick=exportXlsx;
+bindTruck();
 
 // —— 备份导出 / 备份导入 / 从美化版(v2)导入 ——
 function downloadFile(name, text, mime){
@@ -748,9 +795,12 @@ $('importFile').onchange=importBackup;
 $('importV2Btn').onclick=importFromV2;
 
 
-// 打开工具时：只初始化内存中的今天数据，不覆盖已有本地数据。
-// 只有用户实际新增/修改/导入数据时才调用 save()。
-if(!state[today()])state[today()]={ledgers:[blankLedger('账本1')]};
+// 打开工具时：默认定位到今天的日期账本。
+// 使用本地日期，避免 UTC 时区导致晚上/凌晨跳到前一天。
+const openDate=today();
+$('date').value=openDate;
+if(!state[openDate])state[openDate]={ledgers:[blankLedger('账本1')],truck:{first:0,second:0}};
+if(!state[openDate].truck)state[openDate].truck={first:0,second:0};
 activeLedger=0;
 selectedLedgers=new Set([0]);
 currentPage=pageCount();
