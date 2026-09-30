@@ -41,6 +41,8 @@ th,td{padding:7px 5px;text-align:center;border-bottom:1px solid var(--line)}
 td{font-size:14px}
 tbody tr:last-child td{border-bottom:0}
 td input[type=number]{width:88px;height:38px;padding:0 7px;border:1px solid #e2e4e8;border-radius:9px;background:#fbfbfc;text-align:center;outline:none}
+.pay-method{width:100%;height:38px;padding:0 5px;border:1px solid #e2e4e8;border-radius:9px;background:#fbfbfc;color:#333;text-align:center}
+.pay-method:focus{border-color:#aeb4bc;background:#fff;box-shadow:0 0 0 3px rgba(32,36,43,.06)}
 td input[type=number]:focus{border-color:#aeb4bc;background:#fff;box-shadow:0 0 0 3px rgba(32,36,43,.06)}
 .net,.amount{font-variant-numeric:tabular-nums;font-weight:600}
 .amount{color:#24282f}
@@ -95,7 +97,7 @@ tr.cancelled td:not(.actions){text-decoration:line-through}
   tbody{display:grid;gap:9px}
   tbody tr{display:grid;grid-template-columns:34px 1fr 1fr 1fr;grid-template-areas:
     "no jin price amount"
-    "no net paid actions";align-items:center;padding:7px 6px;border:1px solid var(--line);border-radius:11px;background:#fff;box-shadow:0 1px 4px rgba(20,25,35,.025);min-height:78px}
+    "no net method actions";align-items:center;padding:7px 6px;border:1px solid var(--line);border-radius:11px;background:#fff;box-shadow:0 1px 4px rgba(20,25,35,.025);min-height:78px}
   tbody tr.cancelled{background:#fafafa}
   tbody td{border:0;padding:2px 3px;text-align:left;min-width:0}
   tbody td:nth-child(1){grid-area:no;text-align:center;color:#a0a5ad;font-size:11px}
@@ -103,14 +105,17 @@ tr.cancelled td:not(.actions){text-decoration:line-through}
   tbody td:nth-child(3){grid-area:price}
   tbody td:nth-child(4){grid-area:net;font-size:12px;color:#777e88}
   tbody td:nth-child(5){grid-area:amount;font-weight:600}
-  tbody td:nth-child(6){grid-area:paid;font-size:11px;color:#777e88}
-  tbody td:nth-child(7){grid-area:actions}
+  tbody td:nth-child(6){grid-area:method;font-size:11px;color:#777e88}
+  tbody td:nth-child(7){grid-area:paid;font-size:11px;color:#777e88}
+  tbody td:nth-child(8){grid-area:actions}
   tbody td:nth-child(2):before,tbody td:nth-child(3):before{display:inline-block;color:#9a9fa7;font-size:9px;margin-right:3px}
   tbody td:nth-child(2):before{content:"斤"}
   tbody td:nth-child(3):before{content:"价"}
   tbody td:nth-child(4):before{content:"净重 "}
   tbody td:nth-child(5):before{content:"金额 " ;font-size:9px;color:#9a9fa7;font-weight:400}
-  tbody td:nth-child(6):after{content:" 已付";margin-left:2px}
+  tbody td:nth-child(6):before{content:"支付 "}
+  tbody td:nth-child(7):after{content:" 已付";margin-left:2px}
+  .pay-method{height:31px;font-size:12px;padding:0 2px}
   td input[type=number]{width:calc(100% - 15px);height:31px;font-size:13px;padding:0 4px;border-radius:7px}
   .pay{width:18px;height:18px}
   .actions{justify-content:flex-end;gap:4px}
@@ -123,7 +128,7 @@ tr.cancelled td:not(.actions){text-decoration:line-through}
 }
 @media(min-width:701px){
   th:nth-child(1){width:7%}th:nth-child(2){width:14%}th:nth-child(3){width:14%}
-  th:nth-child(4){width:15%}th:nth-child(5){width:16%}th:nth-child(6){width:12%}th:nth-child(7){width:22%}
+  th:nth-child(4){width:13%}th:nth-child(5){width:15%}th:nth-child(6){width:13%}th:nth-child(7){width:10%}th:nth-child(8){width:20%}
 }
 
 /* 多账本 */
@@ -209,12 +214,12 @@ tr.cancelled td:not(.actions){text-decoration:line-through}
   <div class="table-wrap">
     <table>
       <thead><tr>
-        <th>序号</th><th>斤数</th><th>单价</th><th>净重</th><th>金额</th><th>已付款</th><th>操作</th>
+        <th>序号</th><th>斤数</th><th>单价</th><th>净重</th><th>金额</th><th>支付方式</th><th>已付款</th><th>操作</th>
       </tr></thead>
       <tbody id="rows"></tbody>
     </table>
   </div>
-  <div class="table-note">划掉的行不参与合计；已付款只影响“未付金额”。主汇总按上方勾选的账本合并计算。</div>
+  <div class="table-note">划掉的行不参与合计；已付款只影响“未付金额”。支付方式可选现金或网络支付，下面分别统计两种花费。主汇总按上方勾选的账本合并计算。</div>
   <div class="pagination" id="pagination">
     <button class="page-btn" id="prevPage">‹</button>
     <span class="page-info" id="pageInfo">第 1 / 1 页</span>
@@ -229,6 +234,8 @@ tr.cancelled td:not(.actions){text-decoration:line-through}
     <div class="stat"><span>总金额</span><b id="sumMoney">0</b></div>
     <div class="stat avg"><span>均价（总金额 ÷ 总净重）</span><b id="sumAvg">0</b></div>
     <div class="stat unpaid"><span>未付金额</span><b id="sumUnpaid">0</b></div>
+    <div class="stat"><span>网络支付花费</span><b id="sumOnline">0</b></div>
+    <div class="stat"><span>现金花费</span><b id="sumCash">0</b></div>
   </div>
 </section>
 
@@ -281,14 +288,14 @@ function today(){
   const day=String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${day}`;
 }
-function blank(){return {jin:'',price:'',paid:false,cancelled:false}}
+function blank(){return {jin:'',price:'',payment:'cash',paid:false,cancelled:false}}
 function blankLedger(name){return {name,rows:[blank()]}}
 function normalizeState(raw){
   const out={};
   Object.keys(raw||{}).forEach(date=>{
     const v=raw[date];
     if(Array.isArray(v)){
-      out[date]={ledgers:[{name:'账本1',rows:v}]};
+      out[date]={ledgers:[{name:'账本1',rows:v.map(r=>({...r,payment:r.payment==='online'?'online':'cash'}))}]};
     }else if(v && Array.isArray(v.ledgers)){
       const oldTruck=v.truck||{};
       let trips=Array.isArray(oldTruck.trips) ? oldTruck.trips.map(x=>Math.max(0,Math.trunc(Number(x)||0))) : null;
@@ -301,7 +308,7 @@ function normalizeState(raw){
       out[date]={
         ledgers:v.ledgers.map((l,i)=>({
           name:l.name||`账本${i+1}`,
-          rows:Array.isArray(l.rows)&&l.rows.length?l.rows:[blank()]
+          rows:(Array.isArray(l.rows)&&l.rows.length?l.rows:[blank()]).map(r=>({...r,payment:r.payment==='online'?'online':'cash'}))
         })),
         truck:{trips:trips.length?trips:[0]}
       };
@@ -496,7 +503,9 @@ function renderCompare(){
       <div>总净重：${fmt(s.net)}</div>
       <div>总金额：${money(s.total)}</div>
       <div>均价：${avgText(s.avg)}</div>
-      <div>未付金额：${money(s.unpaid)}</div>`;
+      <div>未付金额：${money(s.unpaid)}</div>
+      <div>网络支付：${money((l.rows||[]).filter(r=>!r.cancelled&&r.payment==='online').reduce((z,r)=>z+calcRow(r).amount,0))}</div>
+      <div>现金：${money((l.rows||[]).filter(r=>!r.cancelled&&r.payment!=='online').reduce((z,r)=>z+calcRow(r).amount,0))}</div>`;
     grid.appendChild(card);
   });
 }
@@ -510,7 +519,7 @@ function render(){
   const pageRows=all.slice((currentPage-1)*PAGE_SIZE,currentPage*PAGE_SIZE);
 
   if(!pageRows.length){
-    tbody.innerHTML='<tr><td colspan="7" class="empty">这一页暂时没有记录</td></tr>';
+    tbody.innerHTML='<tr><td colspan="8" class="empty">这一页暂时没有记录</td></tr>';
   }else{
     pageRows.forEach(({r,i})=>{
       const {net,amount}=calcRow(r);
@@ -521,6 +530,10 @@ function render(){
         <td><input inputmode="decimal" type="number" min="0" step="0.01" data-i="${i}" data-k="price" value="${esc(r.price)}"></td>
         <td class="net">${fmt(net)}</td>
         <td class="amount">${money(amount)}</td>
+        <td><select class="pay-method" data-i="${i}" data-k="payment" ${r.cancelled?'disabled':''}>
+          <option value="cash" ${r.payment!=='online'?'selected':''}>现金</option>
+          <option value="online" ${r.payment==='online'?'selected':''}>网络支付</option>
+        </select></td>
         <td><input class="pay" type="checkbox" data-i="${i}" data-k="paid" ${r.paid?'checked':''} ${r.cancelled?'disabled':''}></td>
         <td class="actions">
           <button class="row-btn" data-cancel="${i}">${r.cancelled?'恢复':'划掉'}</button>
@@ -574,11 +587,12 @@ function refreshRow(i,tr){
 function esc(v){return String(v??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}
 function updateSummary(rows){
   // 主界面的合并统计严格按勾选的账本计算；只勾一个就是该账本。
-  let jin=0,net=0,total=0,unpaid=0;
+  let jin=0,net=0,total=0,unpaid=0,online=0,cash=0;
   rows.forEach(r=>{
     if(r.cancelled)return;
     const {jin:j,net:n,amount:a}=calcRow(r);
     jin+=j; net+=n; total+=a;
+    if(r.payment==='online') online+=a; else cash+=a;
     if(!r.paid)unpaid+=a;
   });
   $('sumJin').textContent=fmt(jin);
@@ -586,6 +600,8 @@ function updateSummary(rows){
   $('sumMoney').textContent=money(total);
   $('sumAvg').textContent=net>0 ? avgText(total/net) : '0';
   $('sumUnpaid').textContent=money(unpaid);
+  $('sumOnline').textContent=money(online);
+  $('sumCash').textContent=money(cash);
 }
 
 function selectDate(date){
@@ -658,7 +674,7 @@ function exportXlsx(selectedIndexes){
   sheetRows.push(`<row r="${rowNo}"><c r="A${rowNo}" s="2" t="inlineStr"><is><t>账本数量</t></is></c><c r="B${rowNo}" t="n"><v>${ls.length}</v></c></row>`); rowNo++;
   sheetRows.push(`<row r="${rowNo}"/>`); rowNo++;
 
-  const heads=['账本','序号','斤数','单价','净重','金额','已付款','状态'];
+  const heads=['账本','序号','斤数','单价','净重','金额','支付方式','已付款','状态'];
   sheetRows.push(`<row r="${rowNo}">${heads.map((h,i)=>cell(h,'s').replace('<c ',`<c r="${String.fromCharCode(65+i)}${rowNo}" s="3" `)).join('')}</row>`);
   rowNo++;
 
@@ -672,16 +688,22 @@ function exportXlsx(selectedIndexes){
         cell(Number(r.price)||0,'n').replace('<c ','<c r="D'+rr+'" s="7" ')}${
         cell(x.net,'n').replace('<c ','<c r="E'+rr+'" s="4" ')}${
         cell(x.amount,'n').replace('<c ','<c r="F'+rr+'" s="4" ')}${
-        cell(r.paid?'是':'否').replace('<c ','<c r="G'+rr+'" ')}${
-        cell(r.cancelled?'已划掉':'正常').replace('<c ','<c r="H'+rr+'" ')}</row>`);
+        cell(r.payment==='online'?'网络支付':'现金').replace('<c ','<c r="G'+rr+'" ')}${
+        cell(r.paid?'是':'否').replace('<c ','<c r="H'+rr+'" ')}${
+        cell(r.cancelled?'已划掉':'正常').replace('<c ','<c r="I'+rr+'" ')}</row>`);
     });
   });
 
   // 汇总：明确导出总斤数、总净重、总金额、均价、未付金额；整数模式沿用逐行截断后的账目再汇总。
-  const allStats={jin:0,net:0,total:0,unpaid:0};
+  const allStats={jin:0,net:0,total:0,unpaid:0,online:0,cash:0};
   ls.forEach(l=>{
     const s=ledgerStats(l);
     allStats.jin+=s.jin; allStats.net+=s.net; allStats.total+=s.total; allStats.unpaid+=s.unpaid;
+    (l.rows||[]).forEach(r=>{
+      if(r.cancelled)return;
+      const a=calcRow(r).amount;
+      if(r.payment==='online') allStats.online+=a; else allStats.cash+=a;
+    });
   });
   allStats.avg=allStats.net>0?allStats.total/allStats.net:0;
 
@@ -692,7 +714,9 @@ function exportXlsx(selectedIndexes){
     ['总净重',allStats.net],
     ['总金额',allStats.total],
     ['均价',allStats.avg],
-    ['未付金额',allStats.unpaid]
+    ['未付金额',allStats.unpaid],
+    ['网络支付花费',allStats.online],
+    ['现金花费',allStats.cash]
   ];
   summaries.forEach(([label,val],idx)=>{
     const rr=rowNo++;
@@ -702,7 +726,7 @@ function exportXlsx(selectedIndexes){
 
   // 各账本独立汇总，方便同一天不同地点核对。
   rowNo++;
-  const perHead=['账本','总斤数','总净重','总金额','均价','未付金额'];
+  const perHead=['账本','总斤数','总净重','总金额','均价','未付金额','网络支付','现金'];
   sheetRows.push(`<row r="${rowNo}">${perHead.map((h,i)=>cell(h,'s').replace('<c ',`<c r="${String.fromCharCode(65+i)}${rowNo}" s="3" `)).join('')}</row>`);
   rowNo++;
   ls.forEach((l,i)=>{
@@ -712,7 +736,7 @@ function exportXlsx(selectedIndexes){
   });
 
   const ur=rowNo-1;
-  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:H${ur}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetData>${sheetRows.join('')}</sheetData><mergeCells count="1"><mergeCell ref="A1:H1"/></mergeCells><cols><col min="1" max="1" width="18"/><col min="2" max="2" width="11"/><col min="3" max="3" width="13"/><col min="4" max="4" width="12"/><col min="5" max="5" width="14"/><col min="6" max="6" width="16"/><col min="7" max="7" width="12"/><col min="8" max="8" width="14"/></cols></worksheet>`;
+  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:I${ur}"/><sheetViews><sheetView workbookViewId="0"/></sheetViews><sheetData>${sheetRows.join('')}</sheetData><mergeCells count="1"><mergeCell ref="A1:I1"/></mergeCells><cols><col min="1" max="1" width="18"/><col min="2" max="2" width="11"/><col min="3" max="3" width="13"/><col min="4" max="4" width="12"/><col min="5" max="5" width="14"/><col min="6" max="6" width="16"/><col min="7" max="7" width="12"/><col min="8" max="8" width="12"/><col min="9" max="9" width="14"/></cols></worksheet>`;
   const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><numFmts count="3"><numFmt numFmtId="164" formatCode="${numFmt}"/><numFmt numFmtId="165" formatCode="0.000"/><numFmt numFmtId="166" formatCode="0.00"/></numFmts><fonts count="3"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="18"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="8"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="0" fillId="0" borderId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="164" fontId="2" fillId="0" borderId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="165" fontId="2" fillId="0" borderId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="166" fontId="0" fillId="0" borderId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs></styleSheet>`;
   const workbook=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="收货对账" sheetId="1" r:id="rId1"/></sheets></workbook>`;
   const rels=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
