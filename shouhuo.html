@@ -288,14 +288,14 @@ function today(){
   const day=String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${day}`;
 }
-function blank(){return {jin:'',price:'',payment:'cash',paid:false,cancelled:false}}
+function blank(){return {jin:'',price:'',payment:'online',paid:false,cancelled:false}}
 function blankLedger(name){return {name,rows:[blank()]}}
 function normalizeState(raw){
   const out={};
   Object.keys(raw||{}).forEach(date=>{
     const v=raw[date];
     if(Array.isArray(v)){
-      out[date]={ledgers:[{name:'账本1',rows:v.map(r=>({...r,payment:r.payment==='online'?'online':'cash'}))}]};
+      out[date]={ledgers:[{name:'账本1',rows:v.map(r=>({...r,payment:r.payment==='cash'?'cash':'online'}))}]};
     }else if(v && Array.isArray(v.ledgers)){
       const oldTruck=v.truck||{};
       let trips=Array.isArray(oldTruck.trips) ? oldTruck.trips.map(x=>Math.max(0,Math.trunc(Number(x)||0))) : null;
@@ -308,7 +308,7 @@ function normalizeState(raw){
       out[date]={
         ledgers:v.ledgers.map((l,i)=>({
           name:l.name||`账本${i+1}`,
-          rows:(Array.isArray(l.rows)&&l.rows.length?l.rows:[blank()]).map(r=>({...r,payment:r.payment==='online'?'online':'cash'}))
+          rows:(Array.isArray(l.rows)&&l.rows.length?l.rows:[blank()]).map(r=>({...r,payment:r.payment==='cash'?'cash':'online'}))
         })),
         truck:{trips:trips.length?trips:[0]}
       };
@@ -543,7 +543,7 @@ function render(){
     });
   }
 
-  tbody.querySelectorAll('input[data-k]').forEach(el=>{
+  tbody.querySelectorAll('input[data-k], select[data-k]').forEach(el=>{
     el.oninput=e=>{
       const i=+e.target.dataset.i,k=e.target.dataset.k;
       if(k==='paid') return;
@@ -661,6 +661,7 @@ function zipStore(files){
   return cat(body,eocd);
 }
 function exportXlsx(selectedIndexes){
+  const paymentOf=r => (r && (r.payment==='cash' || r.paymentMethod==='cash' || r.payMethod==='cash')) ? 'cash' : 'online';
   const day=dayData(), date=currentDate(), allLs=ledgers();
   const indexes=Array.isArray(selectedIndexes)?selectedIndexes:allLs.map((_,i)=>i);
   const ls=indexes.map(i=>allLs[i]).filter(Boolean);
@@ -688,7 +689,7 @@ function exportXlsx(selectedIndexes){
         cell(Number(r.price)||0,'n').replace('<c ','<c r="D'+rr+'" s="7" ')}${
         cell(x.net,'n').replace('<c ','<c r="E'+rr+'" s="4" ')}${
         cell(x.amount,'n').replace('<c ','<c r="F'+rr+'" s="4" ')}${
-        cell(r.payment==='online'?'网络支付':'现金').replace('<c ','<c r="G'+rr+'" ')}${
+        cell(paymentOf(r)==='online'?'网络支付':'现金').replace('<c ','<c r="G'+rr+'" ')}${
         cell(r.paid?'是':'否').replace('<c ','<c r="H'+rr+'" ')}${
         cell(r.cancelled?'已划掉':'正常').replace('<c ','<c r="I'+rr+'" ')}</row>`);
     });
@@ -702,7 +703,7 @@ function exportXlsx(selectedIndexes){
     (l.rows||[]).forEach(r=>{
       if(r.cancelled)return;
       const a=calcRow(r).amount;
-      if(r.payment==='online') allStats.online+=a; else allStats.cash+=a;
+      if(paymentOf(r)==='online') allStats.online+=a; else allStats.cash+=a;
     });
   });
   allStats.avg=allStats.net>0?allStats.total/allStats.net:0;
@@ -731,8 +732,10 @@ function exportXlsx(selectedIndexes){
   rowNo++;
   ls.forEach((l,i)=>{
     const s=ledgerStats(l), rr=rowNo++;
-    const vals=[l.name||`账本${i+1}`,s.jin,s.net,s.total,s.avg,s.unpaid];
-    sheetRows.push(`<row r="${rr}">${cell(vals[0]).replace('<c ','<c r="A'+rr+'" ')}${cell(vals[1],'n').replace('<c ','<c r="B'+rr+'" s="5" ')}${cell(vals[2],'n').replace('<c ','<c r="C'+rr+'" s="5" ')}${cell(vals[3],'n').replace('<c ','<c r="D'+rr+'" s="5" ')}${cell(vals[4],'n').replace('<c ','<c r="E'+rr+'" s="6" ')}${cell(vals[5],'n').replace('<c ','<c r="F'+rr+'" s="5" ')}</row>`);
+    let lOnline=0,lCash=0;
+    (l.rows||[]).forEach(r=>{if(r.cancelled)return; const a=calcRow(r).amount; if(paymentOf(r)==='online') lOnline+=a; else lCash+=a;});
+    const vals=[l.name||`账本${i+1}`,s.jin,s.net,s.total,s.avg,s.unpaid,lOnline,lCash];
+    sheetRows.push(`<row r="${rr}">${cell(vals[0]).replace('<c ','<c r="A'+rr+'" ')}${cell(vals[1],'n').replace('<c ','<c r="B'+rr+'" s="5" ')}${cell(vals[2],'n').replace('<c ','<c r="C'+rr+'" s="5" ')}${cell(vals[3],'n').replace('<c ','<c r="D'+rr+'" s="5" ')}${cell(vals[4],'n').replace('<c ','<c r="E'+rr+'" s="6" ')}${cell(vals[5],'n').replace('<c ','<c r="F'+rr+'" s="5" ')}${cell(vals[6],'n').replace('<c ','<c r="G'+rr+'" s="5" ')}${cell(vals[7],'n').replace('<c ','<c r="H'+rr+'" s="5" ')}</row>`);
   });
 
   const ur=rowNo-1;
