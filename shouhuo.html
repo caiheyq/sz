@@ -42,6 +42,7 @@ td{font-size:14px}
 tbody tr:last-child td{border-bottom:0}
 td input[type=number]{width:88px;height:38px;padding:0 7px;border:1px solid #e2e4e8;border-radius:9px;background:#fbfbfc;text-align:center;outline:none}
 .pay-method{width:100%;height:38px;padding:0 5px;border:1px solid #e2e4e8;border-radius:9px;background:#fbfbfc;color:#333;text-align:center}
+.payment-picker{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.22)}.payment-picker-card{display:flex;gap:12px;padding:18px;background:#fff;border-radius:16px;box-shadow:0 8px 30px rgba(0,0,0,.16)}.payment-picker-card button{min-width:110px;height:46px;border-radius:11px;background:#f2f3f5;color:#20242b;font-size:16px}.payment-picker-card button:last-child{background:#eaf2ff}
 .pay-method:focus{border-color:#aeb4bc;background:#fff;box-shadow:0 0 0 3px rgba(32,36,43,.06)}
 td input[type=number]:focus{border-color:#aeb4bc;background:#fff;box-shadow:0 0 0 3px rgba(32,36,43,.06)}
 .net,.amount{font-variant-numeric:tabular-nums;font-weight:600}
@@ -175,6 +176,7 @@ tr.cancelled td:not(.actions){text-decoration:line-through}
   <div class="date-area">
     <input id="date" class="date-input" type="date">
     <button id="historyBtn" class="icon-btn" title="历史日期">历史日期</button>
+    <button id="moveDateBtn" class="icon-btn" title="把当前日期数据剪切到另一天">剪切到其他日期</button>
   </div>
 </header>
 
@@ -194,6 +196,7 @@ tr.cancelled td:not(.actions){text-decoration:line-through}
     <button id="exportBtn" class="ghost-btn export-btn">导出 Excel</button>
     <button id="backupBtn" class="ghost-btn" title="把全部数据存成 JSON 文件，可在任意浏览器导入">导出备份</button>
     <button id="importBtn" class="ghost-btn" title="从备份文件导入数据">导入备份</button>
+    <button id="undoImportBtn" class="ghost-btn" title="撤销最近一次导入备份" disabled>撤销导入</button>
     <input id="importFile" type="file" accept=".json,application/json" style="display:none">
   </div>
   <div class="ledger-bar">
@@ -219,7 +222,7 @@ tr.cancelled td:not(.actions){text-decoration:line-through}
       <tbody id="rows"></tbody>
     </table>
   </div>
-  <div class="table-note">划掉的行不参与合计；已付款只影响“未付金额”。支付方式可选现金或网络支付，下面分别统计两种花费。主汇总按上方勾选的账本合并计算。</div>
+  <div class="table-note">划掉的行不参与合计；现金和网络支付金额只统计已勾选“已付款”且已选择支付方式的记录。主汇总按上方勾选的账本合并计算。</div>
   <div class="pagination" id="pagination">
     <button class="page-btn" id="prevPage">‹</button>
     <span class="page-info" id="pageInfo">第 1 / 1 页</span>
@@ -288,14 +291,14 @@ function today(){
   const day=String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${day}`;
 }
-function blank(){return {jin:'',price:'',payment:'online',paid:false,cancelled:false}}
+function blank(){return {jin:'',price:'',payment:'',paid:false,cancelled:false}}
 function blankLedger(name){return {name,rows:[blank()]}}
 function normalizeState(raw){
   const out={};
   Object.keys(raw||{}).forEach(date=>{
     const v=raw[date];
     if(Array.isArray(v)){
-      out[date]={ledgers:[{name:'账本1',rows:v.map(r=>({...r,payment:r.payment==='cash'?'cash':'online'}))}]};
+      out[date]={ledgers:[{name:'账本1',rows:v.map(r=>({...r,payment:['cash','online'].includes(r.payment)?r.payment:''}))}]};
     }else if(v && Array.isArray(v.ledgers)){
       const oldTruck=v.truck||{};
       let trips=Array.isArray(oldTruck.trips) ? oldTruck.trips.map(x=>Math.max(0,Math.trunc(Number(x)||0))) : null;
@@ -308,7 +311,7 @@ function normalizeState(raw){
       out[date]={
         ledgers:v.ledgers.map((l,i)=>({
           name:l.name||`账本${i+1}`,
-          rows:(Array.isArray(l.rows)&&l.rows.length?l.rows:[blank()]).map(r=>({...r,payment:r.payment==='cash'?'cash':'online'}))
+          rows:(Array.isArray(l.rows)&&l.rows.length?l.rows:[blank()]).map(r=>({...r,payment:['cash','online'].includes(r.payment)?r.payment:''}))
         })),
         truck:{trips:trips.length?trips:[0]}
       };
@@ -504,8 +507,8 @@ function renderCompare(){
       <div>总金额：${money(s.total)}</div>
       <div>均价：${avgText(s.avg)}</div>
       <div>未付金额：${money(s.unpaid)}</div>
-      <div>网络支付：${money((l.rows||[]).filter(r=>!r.cancelled&&r.payment==='online').reduce((z,r)=>z+calcRow(r).amount,0))}</div>
-      <div>现金：${money((l.rows||[]).filter(r=>!r.cancelled&&r.payment!=='online').reduce((z,r)=>z+calcRow(r).amount,0))}</div>`;
+      <div>网络支付：${money((l.rows||[]).filter(r=>!r.cancelled&&r.paid&&r.payment==='online').reduce((z,r)=>z+calcRow(r).amount,0))}</div>
+      <div>现金：${money((l.rows||[]).filter(r=>!r.cancelled&&r.paid&&r.payment==='cash').reduce((z,r)=>z+calcRow(r).amount,0))}</div>`;
     grid.appendChild(card);
   });
 }
@@ -530,10 +533,7 @@ function render(){
         <td><input inputmode="decimal" type="number" min="0" step="0.01" data-i="${i}" data-k="price" value="${esc(r.price)}"></td>
         <td class="net">${fmt(net)}</td>
         <td class="amount">${money(amount)}</td>
-        <td><select class="pay-method" data-i="${i}" data-k="payment" ${r.cancelled?'disabled':''}>
-          <option value="cash" ${r.payment!=='online'?'selected':''}>现金</option>
-          <option value="online" ${r.payment==='online'?'selected':''}>网络支付</option>
-        </select></td>
+        <td><button type="button" class="pay-method" data-payment-pick="${i}" ${r.cancelled?'disabled':''}>${r.payment==='cash'?'现金':r.payment==='online'?'网络支付':'未选择'}</button></td>
         <td><input class="pay" type="checkbox" data-i="${i}" data-k="paid" ${r.paid?'checked':''} ${r.cancelled?'disabled':''}></td>
         <td class="actions">
           <button class="row-btn" data-cancel="${i}">${r.cancelled?'恢复':'划掉'}</button>
@@ -543,7 +543,7 @@ function render(){
     });
   }
 
-  tbody.querySelectorAll('input[data-k], select[data-k]').forEach(el=>{
+  tbody.querySelectorAll('input[data-k]').forEach(el=>{
     el.oninput=e=>{
       const i=+e.target.dataset.i,k=e.target.dataset.k;
       if(k==='paid') return;
@@ -558,6 +558,14 @@ function render(){
       save();
       if(k==='paid') updateSummary(calcScopeRows());
     };
+  });
+  tbody.querySelectorAll('[data-payment-pick]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.paymentPick;
+    const overlay=document.createElement('div'); overlay.className='payment-picker';
+    overlay.innerHTML='<div class="payment-picker-card"><button type="button" data-pay="cash">现金</button><button type="button" data-pay="online">网络支付</button></div>';
+    overlay.onclick=e=>{if(e.target===overlay)overlay.remove();};
+    overlay.querySelectorAll('[data-pay]').forEach(opt=>opt.onclick=()=>{data()[i].payment=opt.dataset.pay;save();overlay.remove();render();});
+    document.body.appendChild(overlay);
   });
   tbody.querySelectorAll('[data-cancel]').forEach(b=>b.onclick=()=>{
     const i=+b.dataset.cancel; data()[i].cancelled=!data()[i].cancelled; save(); render();
@@ -592,7 +600,7 @@ function updateSummary(rows){
     if(r.cancelled)return;
     const {jin:j,net:n,amount:a}=calcRow(r);
     jin+=j; net+=n; total+=a;
-    if(r.payment==='online') online+=a; else cash+=a;
+    if(r.paid && r.payment==='online') online+=a; else if(r.paid && r.payment==='cash') cash+=a;
     if(!r.paid)unpaid+=a;
   });
   $('sumJin').textContent=fmt(jin);
@@ -661,7 +669,7 @@ function zipStore(files){
   return cat(body,eocd);
 }
 function exportXlsx(selectedIndexes){
-  const paymentOf=r => (r && (r.payment==='cash' || r.paymentMethod==='cash' || r.payMethod==='cash')) ? 'cash' : 'online';
+  const paymentOf=r => (r && (r.payment==='cash' || r.paymentMethod==='cash' || r.payMethod==='cash')) ? 'cash' : ((r && (r.payment==='online' || r.paymentMethod==='online' || r.payMethod==='online')) ? 'online' : '');
   const day=dayData(), date=currentDate(), allLs=ledgers();
   const indexes=Array.isArray(selectedIndexes)?selectedIndexes:allLs.map((_,i)=>i);
   const ls=indexes.map(i=>allLs[i]).filter(Boolean);
@@ -689,7 +697,7 @@ function exportXlsx(selectedIndexes){
         cell(Number(r.price)||0,'n').replace('<c ','<c r="D'+rr+'" s="7" ')}${
         cell(x.net,'n').replace('<c ','<c r="E'+rr+'" s="4" ')}${
         cell(x.amount,'n').replace('<c ','<c r="F'+rr+'" s="4" ')}${
-        cell(paymentOf(r)==='online'?'网络支付':'现金').replace('<c ','<c r="G'+rr+'" ')}${
+        cell(paymentOf(r)==='online'?'网络支付':(paymentOf(r)==='cash'?'现金':'未选择')).replace('<c ','<c r="G'+rr+'" ')}${
         cell(r.paid?'是':'否').replace('<c ','<c r="H'+rr+'" ')}${
         cell(r.cancelled?'已划掉':'正常').replace('<c ','<c r="I'+rr+'" ')}</row>`);
     });
@@ -703,7 +711,7 @@ function exportXlsx(selectedIndexes){
     (l.rows||[]).forEach(r=>{
       if(r.cancelled)return;
       const a=calcRow(r).amount;
-      if(paymentOf(r)==='online') allStats.online+=a; else allStats.cash+=a;
+      if(r.paid && paymentOf(r)==='online') allStats.online+=a; else if(r.paid && paymentOf(r)==='cash') allStats.cash+=a;
     });
   });
   allStats.avg=allStats.net>0?allStats.total/allStats.net:0;
@@ -733,7 +741,7 @@ function exportXlsx(selectedIndexes){
   ls.forEach((l,i)=>{
     const s=ledgerStats(l), rr=rowNo++;
     let lOnline=0,lCash=0;
-    (l.rows||[]).forEach(r=>{if(r.cancelled)return; const a=calcRow(r).amount; if(paymentOf(r)==='online') lOnline+=a; else lCash+=a;});
+    (l.rows||[]).forEach(r=>{if(r.cancelled||!r.paid)return; const a=calcRow(r).amount; if(paymentOf(r)==='online') lOnline+=a; else if(paymentOf(r)==='cash') lCash+=a;});
     const vals=[l.name||`账本${i+1}`,s.jin,s.net,s.total,s.avg,s.unpaid,lOnline,lCash];
     sheetRows.push(`<row r="${rr}">${cell(vals[0]).replace('<c ','<c r="A'+rr+'" ')}${cell(vals[1],'n').replace('<c ','<c r="B'+rr+'" s="5" ')}${cell(vals[2],'n').replace('<c ','<c r="C'+rr+'" s="5" ')}${cell(vals[3],'n').replace('<c ','<c r="D'+rr+'" s="5" ')}${cell(vals[4],'n').replace('<c ','<c r="E'+rr+'" s="6" ')}${cell(vals[5],'n').replace('<c ','<c r="F'+rr+'" s="5" ')}${cell(vals[6],'n').replace('<c ','<c r="G'+rr+'" s="5" ')}${cell(vals[7],'n').replace('<c ','<c r="H'+rr+'" s="5" ')}</row>`);
   });
@@ -878,15 +886,18 @@ function mergeImported(conv){
 function exportBackup(){
   downloadFile('芋头收货对账_备份.json', JSON.stringify(state,null,2), 'application/json');
 }
+let preImportSnapshot=null;
 function importBackup(e){
   const file=e.target.files[0]; if(!file)return;
+  preImportSnapshot=JSON.stringify(state);
   const reader=new FileReader();
   reader.onload=()=>{
     try{
       const conv=normalizeState(JSON.parse(reader.result));
       const days=mergeImported(conv);
       save(); activeLedger=0; selectedLedgers=new Set([0]); currentPage=1; render();
-      alert('导入完成：共处理 '+days+' 天数据。');
+      $('undoImportBtn').disabled=false;
+      alert('导入完成：共处理 '+days+' 天数据。可以点击“撤销导入”恢复导入前的数据。');
     }catch(err){ alert('导入失败：文件不是本工具的备份格式。\n'+err.message); }
     e.target.value='';
   };
@@ -895,6 +906,25 @@ function importBackup(e){
 $('backupBtn').onclick=exportBackup;
 $('importBtn').onclick=()=>$('importFile').click();
 $('importFile').onchange=importBackup;
+$('undoImportBtn').onclick=()=>{if(!preImportSnapshot){alert('没有可撤销的导入记录');return;}if(!confirm('确定撤销最近一次导入，并恢复导入前的全部数据？'))return;try{state=JSON.parse(preImportSnapshot);save();preImportSnapshot=null;$('undoImportBtn').disabled=true;activeLedger=0;selectedLedgers=new Set([0]);selectDate(currentDate());render();alert('已恢复导入前的数据。');}catch(e){alert('撤销失败：'+e.message);}};
+$('moveDateBtn').onclick=()=>{
+  const from=currentDate();
+  const target=prompt('把 '+from+' 的全部数据剪切到哪一天？请输入日期（例如 2026-10-12）', today());
+  if(!target)return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(target)){alert('日期格式不正确');return;}
+  if(target===from){alert('目标日期与当前日期相同');return;}
+  if(!state[from]){alert('当前日期没有可剪切的数据');return;}
+  if(state[target] && !confirm('目标日期已有数据。确定把当前日期的账本追加到目标日期吗？'))return;
+  const src=state[from];
+  if(!state[target])state[target]={ledgers:[],truck:{trips:[0]}};
+  if(!Array.isArray(state[target].ledgers))state[target].ledgers=[];
+  (src.ledgers||[]).forEach(l=>state[target].ledgers.push(l));
+  const srcTrips=src.truck?.trips||[src.truck?.first||0,src.truck?.second||0];
+  const dstTrips=state[target].truck?.trips||[0];
+  state[target].truck={trips:[...dstTrips,...srcTrips]};
+  delete state[from];save();selectDate(target);activeLedger=0;selectedLedgers=new Set([0]);currentPage=pageCount();render();
+  alert('已将 '+from+' 的数据剪切到 '+target+'。');
+};
 
 
 // 打开工具时：默认定位到今天的日期账本。
